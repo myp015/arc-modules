@@ -132,7 +132,7 @@ jobs:
 
           sudo cp -a ${ROOT_PATH}/source ${ROOT_PATH}/build_env/ds.${{ matrix.platform }}-${{ matrix.version }}/
 
-- name: Make
+      - name: Make
         run: |
           ROOT_PATH=${{ github.workspace }}
 
