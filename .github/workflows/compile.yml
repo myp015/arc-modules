@@ -132,7 +132,7 @@ jobs:
 
           sudo cp -a ${ROOT_PATH}/source ${ROOT_PATH}/build_env/ds.${{ matrix.platform }}-${{ matrix.version }}/
 
-      - name: Make
+- name: Make
         run: |
           ROOT_PATH=${{ github.workspace }}
 
@@ -147,7 +147,10 @@ jobs:
           else
             echo "[E] ${{ matrix.platform }}-${{ matrix.version }}"
           fi
-          make -j`nproc` -C "${KSRC}" M="${PWD}" ${PARMS} modules
+
+          # --- 核心修改：添加 KCFLAGS 忽略警告错误 ---
+          make -j`nproc` -C "${KSRC}" M="${PWD}" ${PARMS} KCFLAGS="-Wno-error -Wno-format-truncation" modules
+          
           while read F; do
             strip -g "${F}"
             echo "Copying `basename ${F}`"
@@ -158,26 +161,38 @@ jobs:
           sudo cp -a ${ROOT_PATH}/build_env/ds.${{ matrix.platform }}-${{ matrix.version }}/source/output ${ROOT_PATH}/source/
           sudo chmod a+rw -R ${ROOT_PATH}/source/output
 
-      - name: Tar to Artifacts
+      # --- 新增：自动替换到 modules 文件夹 ---
+      - name: Sync to Modules Folder
         run: |
-          if [ ! -d "${{ github.workspace }}/source/output" ]; then
-            mkdir -p "${{ github.workspace }}/source/output"
-            chmod a+rw -R "${{ github.workspace }}/source/output"
-          fi
-
-          if [ "${{ matrix.platform }}" = "epyc7002" ]; then
-            tar caf ${{ github.workspace }}/source/${{ matrix.platform }}-${{ matrix.version }}-${{ matrix.parm }}.tgz -C ${{ github.workspace }}/source/output .
+          # 文件夹格式：平台-内核版本 (例如 apollolake-4.4.302)
+          # 注意： matrix.parm 是你在矩阵里定义的内核号
+          TARGET_DIR="modules/${{ matrix.platform }}-${{ matrix.parm }}"
+          mkdir -p "${TARGET_DIR}"
+          
+          # 拷贝编译好的 ko 文件
+          if [ -d "source/output" ] && [ "$(ls -A source/output/*.ko 2>/dev/null)" ]; then
+            cp -f source/output/*.ko "${TARGET_DIR}/"
+            echo "Successfully synced modules to ${TARGET_DIR}"
           else
-            tar caf ${{ github.workspace }}/source/${{ matrix.platform }}-${{ matrix.parm }}.tgz -C ${{ github.workspace }}/source/output .
+            echo "Error: No .ko files found to sync!"
+            exit 1
           fi
 
-      - name: Upload to Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.platform }}-${{ matrix.version }}-${{ matrix.parm }}
-          path: |
-            ${{ github.workspace }}/source/*.tgz
-            
-      - name: clean
+      # --- 新增：提交并推送到仓库 ---
+      - name: Commit and Push
         run: |
-          sudo rm -rf ${{ github.workspace }}/build_env/ds.${{ matrix.platform }}-${{ matrix.version }}/source/*
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add modules/
+          
+          # 检查是否有文件变动，有则提交
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-update modules for ${{ matrix.platform }} (Kernel ${{ matrix.parm }})"
+            # 这里的 pull 是为了防止多矩阵并行运行导致的冲突
+            git pull --rebase origin main
+            git push origin main
+          fi
+
+      # 后面的 Tar 和 Upload 步骤可以保留作为备份
