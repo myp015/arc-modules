@@ -39,21 +39,21 @@ jobs:
           - version: 7.3 
             platform: broadwellnk
             parm: "4.4.302"
-          - version: 7.3 
-            platform: broadwellnkv2
-            parm: "4.4.302"
+     #     - version: 7.3 
+     #       platform: broadwellnkv2
+     #       parm: "4.4.302"
           - version: 7.3
             platform: denverton
             parm: "4.4.302"
-          - version: 7.3
-            platform: epyc7002
-            parm: "5.10.55"
+     #     - version: 7.3
+     #       platform: epyc7002
+     #       parm: "5.10.55"
           - version: 7.3 
             platform: geminilake
             parm: "4.4.302"
-          - version: 7.3 
-            platform: purley
-            parm: "4.4.302"
+     #     - version: 7.3 
+     #       platform: purley
+     #       parm: "4.4.302"
           - version: 7.3
             platform: r1000
             parm: "4.4.302"
